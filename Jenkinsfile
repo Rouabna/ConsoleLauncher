@@ -3,7 +3,13 @@ pipeline {
     stages {
         stage('Checkout Codebase') {
             steps {
-                checkout scm: [$class: 'GitSCM', userRemoteConfigs: [[credentialsId: 'GitHubSShkey', url: 'git@github.com:Rouabna/ConsoleLauncher.git']]]
+                checkout([$class: 'GitSCM',
+                          branches: [[name: 'main']],
+                          userRemoteConfigs: [[
+                              url: 'git@github.com:Rouabna/ConsoleLauncher.git',
+                              credentialsId: 'GitHubSShkey'
+                          ]]
+                ])
             }
         }
         stage('Build') {
@@ -23,3 +29,4 @@ pipeline {
         }
     }
 }
+
