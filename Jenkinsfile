@@ -1,34 +1,45 @@
 pipeline {
     agent any
+
+    environment {
+        IMAGE_NAME = "rouabna/consolelauncher"
+        IMAGE_TAG  = "latest"
+    }
+
     stages {
-        stage('Checkout Codebase') {
+
+        stage('Checkout') {
             steps {
                 cleanWs()
-                checkout([$class: 'GitSCM', 
-                          branches: [[name: '*/main']], // <- explicitly use main
-                          userRemoteConfigs: [[credentialsId: 'GitHubSShkey', 
-                                               url: 'git@github.com:Rouabna/ConsoleLauncher.git']]])
+                checkout scm
             }
         }
-        stage('Build') {
+
+        stage('Build Image') {
             steps {
-                echo 'Building project...'
-                sh 'mkdir -p lib target'
-                sh 'curl -L -o lib/junit-platform-console-standalone-1.8.1.jar https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.8.1/junit-platform-console-standalone-1.8.1.jar'
-                sh 'javac -d target -cp lib/junit-platform-console-standalone-1.8.1.jar src/test/java/FirstUnitTest.java'
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
-        stage('Test') {
-            steps {
-                echo 'Running tests...'
-                sh 'java -jar lib/junit-platform-console-standalone-1.8.1.jar -cp target -c FirstUnitTest'
+
+        stage('Push Docker Image') {
+            withCredentials([string(credentialsId: 'dockerhub_token', variable: 'DOCKER_TOKEN')]) {
+                sh '''
+                    echo $DOCKER_TOKEN | docker login -u rouabna --password-stdin
+                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
             }
         }
-        stage('Deploy') {
+
+        stage('Run Container') {
             steps {
-                echo 'Deploying...'
+                // Stop & remove old container if exists
+                sh '''
+                    if [ $(docker ps -a -q -f name=consolelauncher) ]; then
+                        docker rm -f consolelauncher
+                    fi
+                    docker run -d -p 8080:80 --name consolelauncher ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
             }
         }
     }
 }
-
